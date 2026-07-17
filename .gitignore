@@ -1,0 +1,9 @@
+node_modules/
+data/*.db
+data/*.db-journal
+data/*.db-wal
+data/*.db-shm
+workers.pid.json
+config.json
+*.log
+.DS_Store
