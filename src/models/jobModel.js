@@ -55,12 +55,16 @@ function claimNextJob() {
   const now = nowISO();
 
   // Step 1: find a candidate pending job id (oldest first).
+ // Step 1: find a candidate pending job id (oldest first) whose
+  // backoff wait (if any) has already elapsed. next_attempt_at is
+  // NULL for fresh jobs (always eligible immediately).
   const candidate = db.prepare(`
     SELECT id FROM jobs
     WHERE state = 'pending'
+      AND (next_attempt_at IS NULL OR next_attempt_at <= @now)
     ORDER BY created_at ASC
     LIMIT 1
-  `).get();
+  `).get({ now });
 
   if (!candidate) {
     return null; // nothing to do
@@ -101,14 +105,44 @@ function markCompleted(id) {
  * This stage just records the failure — retry/backoff/DLQ logic
  * comes in Stage 6.
  */
-function markFailed(id, errorMessage) {
+/**
+ * Handles a failed job execution:
+ * - increments attempts
+ * - if attempts < max_retries: schedules a retry with exponential backoff (state -> pending)
+ * - if attempts >= max_retries: moves the job to the dead letter queue (state -> dead)
+ */
+function markFailed(id, errorMessage, backoffBase) {
+  const job = getJobById(id);
   const now = nowISO();
+  const newAttempts = job.attempts + 1;
+
+  if (newAttempts >= job.max_retries) {
+    db.prepare(`
+      UPDATE jobs
+      SET state = 'dead', attempts = @attempts, updated_at = @updated_at,
+          last_error = @last_error, next_attempt_at = NULL
+      WHERE id = @id
+    `).run({ id, attempts: newAttempts, updated_at: now, last_error: errorMessage });
+    return { ...getJobById(id), movedToDLQ: true };
+  }
+
+  const { getNextAttemptTime } = require('../utils/backoff');
+  const { nextAttemptAt, delaySeconds } = getNextAttemptTime(newAttempts, backoffBase);
+
   db.prepare(`
     UPDATE jobs
-    SET state = 'failed', updated_at = @updated_at, last_error = @last_error
+    SET state = 'pending', attempts = @attempts, updated_at = @updated_at,
+        last_error = @last_error, next_attempt_at = @next_attempt_at
     WHERE id = @id
-  `).run({ id, updated_at: now, last_error: errorMessage });
-  return getJobById(id);
+  `).run({
+    id,
+    attempts: newAttempts,
+    updated_at: now,
+    last_error: errorMessage,
+    next_attempt_at: nextAttemptAt
+  });
+
+  return { ...getJobById(id), movedToDLQ: false, retryDelaySeconds: delaySeconds };
 }
 module.exports = {
   insertJob,

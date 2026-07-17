@@ -1,5 +1,6 @@
 const { execSync } = require('child_process');
 const { claimNextJob, markCompleted, markFailed } = require('../models/jobModel');
+const { getConfig } = require('../config/config');
 
 /**
  * Attempts to claim and execute exactly one job.
@@ -24,12 +25,19 @@ function processOneJob() {
       console.log(`[worker] Output: ${output.trim()}`);
     }
     return { status: 'completed', jobId: job.id };
-  } catch (err) {
+  }  catch (err) {
     // err.status is the exit code; err.message includes stderr info.
     const errorMessage = err.message || 'Unknown execution error';
-    markFailed(job.id, errorMessage);
-    console.log(`[worker] Job ${job.id} FAILED: ${errorMessage.split('\n')[0]}`);
-    return { status: 'failed', jobId: job.id, error: errorMessage };
+    const config = getConfig();
+    const updatedJob = markFailed(job.id, errorMessage, config.backoff_base);
+
+    if (updatedJob.movedToDLQ) {
+      console.log(`[worker] Job ${job.id} FAILED permanently after ${updatedJob.attempts} attempts. Moved to DLQ.`);
+      return { status: 'dead', jobId: job.id, error: errorMessage };
+    } else {
+      console.log(`[worker] Job ${job.id} FAILED (attempt ${updatedJob.attempts}/${updatedJob.max_retries}). Retry in ${updatedJob.retryDelaySeconds}s.`);
+      return { status: 'failed', jobId: job.id, error: errorMessage, retryDelaySeconds: updatedJob.retryDelaySeconds };
+    }
   }
 }
 
