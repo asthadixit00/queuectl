@@ -2,6 +2,8 @@
 
 const { Command } = require('commander');
 const enqueueCommand = require('../src/commands/enqueue');
+const statusCommand = require('../src/commands/status');
+const listCommand = require('../src/commands/list');
 
 const program = new Command();
 
@@ -17,4 +19,20 @@ program
   .action((jobJson, options) => {
     enqueueCommand(jobJson, options);
   });
+
+program
+  .command('status')
+  .description('Show a summary of job counts grouped by state.')
+  .action(() => {
+    statusCommand();
+  });
+
+program
+  .command('list')
+  .description('List jobs, optionally filtered by state.')
+  .option('-s, --state <state>', 'Filter by state (pending, processing, completed, failed, dead)')
+  .action((options) => {
+    listCommand(options);
+  });
+
 program.parse(process.argv);
