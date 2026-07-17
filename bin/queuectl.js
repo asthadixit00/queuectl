@@ -4,7 +4,7 @@ const { Command } = require('commander');
 const enqueueCommand = require('../src/commands/enqueue');
 const statusCommand = require('../src/commands/status');
 const listCommand = require('../src/commands/list');
-
+const { processOneJob } = require('../src/worker/workerProcess');
 const program = new Command();
 
 program
@@ -34,5 +34,11 @@ program
   .action((options) => {
     listCommand(options);
   });
-
+program
+  .command('worker-run-once')
+  .description('[TEMPORARY/DEBUG] Claim and execute exactly one job, then exit.')
+  .action(() => {
+    const result = processOneJob();
+    console.log('Result:', result);
+  });
 program.parse(process.argv);
