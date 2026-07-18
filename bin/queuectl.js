@@ -4,7 +4,7 @@ const { Command } = require('commander');
 const enqueueCommand = require('../src/commands/enqueue');
 const statusCommand = require('../src/commands/status');
 const listCommand = require('../src/commands/list');
-const { processOneJob } = require('../src/worker/workerProcess');
+const { startWorkers, stopWorkers } = require('../src/worker/workerManager');
 const program = new Command();
 
 program
@@ -34,11 +34,28 @@ program
   .action((options) => {
     listCommand(options);
   });
-program
-  .command('worker-run-once')
-  .description('[TEMPORARY/DEBUG] Claim and execute exactly one job, then exit.')
+const workerCmd = program
+  .command('worker')
+  .description('Manage worker processes.');
+
+workerCmd
+  .command('start')
+  .description('Start N worker processes that claim and execute jobs.')
+  .option('-c, --count <number>', 'Number of worker processes to start', '1')
+  .action((options) => {
+    const count = parseInt(options.count, 10);
+    if (isNaN(count) || count < 1) {
+      console.error('Error: --count must be a positive integer.');
+      process.exitCode = 1;
+      return;
+    }
+    startWorkers(count);
+  });
+
+workerCmd
+  .command('stop')
+  .description('Gracefully stop all running worker processes.')
   .action(() => {
-    const result = processOneJob();
-    console.log('Result:', result);
+    stopWorkers();
   });
 program.parse(process.argv);

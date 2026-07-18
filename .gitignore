@@ -7,3 +7,4 @@ workers.pid.json
 config.json
 *.log
 .DS_Store
+logs/
