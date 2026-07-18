@@ -5,6 +5,7 @@ const enqueueCommand = require('../src/commands/enqueue');
 const statusCommand = require('../src/commands/status');
 const listCommand = require('../src/commands/list');
 const { startWorkers, stopWorkers } = require('../src/worker/workerManager');
+const { configSetCommand, configGetCommand } = require('../src/commands/configCmd');
 const program = new Command();
 
 program
@@ -57,5 +58,22 @@ workerCmd
   .description('Gracefully stop all running worker processes.')
   .action(() => {
     stopWorkers();
+  });
+  const configCommand = program
+  .command('config')
+  .description('Manage queuectl configuration (max-retries, backoff-base).');
+
+configCommand
+  .command('set <key> <value>')
+  .description('Set a config value. Keys: max-retries, backoff-base')
+  .action((key, value) => {
+    configSetCommand(key, value);
+  });
+
+configCommand
+  .command('get')
+  .description('Show current configuration values.')
+  .action(() => {
+    configGetCommand();
   });
 program.parse(process.argv);

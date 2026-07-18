@@ -13,6 +13,14 @@ function insertJob({ id, command, max_retries }) {
   const jobId = id || crypto.randomUUID();
   const timestamp = nowISO();
 
+  // If the enqueue call didn't specify max_retries, fall back to the
+  // configured default rather than a hardcoded value.
+  let effectiveMaxRetries = max_retries;
+  if (effectiveMaxRetries == null) {
+    const { getConfig } = require('../config/config');
+    effectiveMaxRetries = getConfig().max_retries;
+  }
+
   const stmt = db.prepare(`
     INSERT INTO jobs (id, command, state, attempts, max_retries, last_error, next_attempt_at, created_at, updated_at)
     VALUES (@id, @command, 'pending', 0, @max_retries, NULL, NULL, @created_at, @updated_at)
@@ -21,7 +29,7 @@ function insertJob({ id, command, max_retries }) {
   stmt.run({
     id: jobId,
     command,
-    max_retries: max_retries != null ? max_retries : 3,
+    max_retries: effectiveMaxRetries,
     created_at: timestamp,
     updated_at: timestamp
   });
