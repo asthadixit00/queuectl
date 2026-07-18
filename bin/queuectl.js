@@ -6,6 +6,7 @@ const statusCommand = require('../src/commands/status');
 const listCommand = require('../src/commands/list');
 const { startWorkers, stopWorkers } = require('../src/worker/workerManager');
 const { configSetCommand, configGetCommand } = require('../src/commands/configCmd');
+const { dlqListCommand, dlqRetryCommand } = require('../src/commands/dlq');
 const program = new Command();
 
 program
@@ -75,5 +76,22 @@ configCommand
   .description('Show current configuration values.')
   .action(() => {
     configGetCommand();
+  });
+  const dlqCommand = program
+  .command('dlq')
+  .description('Manage the Dead Letter Queue.');
+
+dlqCommand
+  .command('list')
+  .description('List all jobs in the Dead Letter Queue.')
+  .action(() => {
+    dlqListCommand();
+  });
+
+dlqCommand
+  .command('retry <jobId>')
+  .description('Move a dead job back to pending, resetting its attempts.')
+  .action((jobId) => {
+    dlqRetryCommand(jobId);
   });
 program.parse(process.argv);

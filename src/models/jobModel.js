@@ -152,6 +152,31 @@ function markFailed(id, errorMessage, backoffBase) {
 
   return { ...getJobById(id), movedToDLQ: false, retryDelaySeconds: delaySeconds };
 }
+/**
+ * Manually revive a dead job back to pending, resetting attempts to 0
+ * so it gets a full fresh set of retries. Used by: dlq retry <job-id>
+ */
+function retryDeadJob(id) {
+  const job = getJobById(id);
+
+  if (!job) {
+    return { success: false, reason: 'not_found' };
+  }
+
+  if (job.state !== 'dead') {
+    return { success: false, reason: 'not_dead', currentState: job.state };
+  }
+
+  const now = nowISO();
+  db.prepare(`
+    UPDATE jobs
+    SET state = 'pending', attempts = 0, last_error = NULL,
+        next_attempt_at = NULL, updated_at = @updated_at
+    WHERE id = @id
+  `).run({ id, updated_at: now });
+
+  return { success: true, job: getJobById(id) };
+}
 module.exports = {
   insertJob,
   getJobById,
@@ -159,5 +184,6 @@ module.exports = {
   countByState,
   claimNextJob,
   markCompleted,
-  markFailed
+  markFailed,
+  retryDeadJob
 };
