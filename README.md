@@ -208,7 +208,7 @@ All 15 assertions pass on the reference machine (Windows/PowerShell).
 
 ## CLI Demo
 
-Video: **[ADD YOUR GOOGLE DRIVE LINK HERE]**
+Video: (https://drive.google.com/file/d/1nWhbvy_k5ALwzGyq6HPxF-WVBfvBoPZt/view?usp=sharing)
 
 The demo covers:
 1. Enqueuing a job and successful completion

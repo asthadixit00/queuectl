@@ -1,1 +1,1 @@
-﻿not valid json
+﻿{"id":"demoBad","command":"thiscommanddoesnotexist","max_retries":2}
